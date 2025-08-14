@@ -1,0 +1,5 @@
+numpy
+scipy
+numba
+jsonschema
+git+https://github.com/tqsd/special_issue_quantum.git@master
