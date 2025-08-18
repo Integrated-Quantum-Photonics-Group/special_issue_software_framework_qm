@@ -39,4 +39,5 @@ The provided code can be run using either the Dockerfile or by manually installi
    Note: To automatically abort the code after the state is displayed when using Docker, ensure the following lines are uncommented in main.py:
 
    import os
+   
    os._exit(0)
