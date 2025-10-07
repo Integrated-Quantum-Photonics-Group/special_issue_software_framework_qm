@@ -80,7 +80,7 @@ class component:
                 # optimize the phase gate by tuning cavity loss rate k, detuning dc and central frequency w0
                 # evaluate phase gate fidelity F and cooperativity C
                 # cooperativity C influences the spin states
-                y,F,eta,C1A,C2B,C2A,C1B=get_params(B,angle,self.ga,0,0)
+                y,I,eta,C1A,C2B,C2A,C1B=get_params(B,angle,self.ga,0,0)
                 k,dc,dw0=y
                 
                 # for the given temperature, magnetic field and cooperativity evaluate spin states (states) and the
@@ -100,9 +100,11 @@ class component:
                 # read-in with microwave control
                 
                 # optimize the phase gate by tuning cavity loss rate k, detuning dc and central frequency w0
-                y,F,eta,C1A,C2B,C2A,C1B=get_params(self.B_dc*1e-24,self.theta_dc,self.ga,self.Ex,self.eps_xy)
+                
+                y,I,eta,C1A,C2B,C2A,C1B=get_params(self.B_dc*1e-24,self.theta_dc,self.ga,self.Ex,self.eps_xy)
+                
                 k,dc,dw0=y
-
+                
                 # for the given temperature, magnetic field and strain evaluate spin states (states) and the
                 # approximation error (e)
                 states,e=get_spin_states_mw(self.theta_dc,self.theta_ac,self.Ex*1e-3,self.eps_xy*1e-3,self.B_dc,self.B_ac,self.TT)
@@ -127,7 +129,7 @@ class component:
                 # optimize the phase gate by tuning cavity loss rate k, detuning dc and central frequency w0
                 # evaluate phase gate fidelity F and cooperativity C
                 # cooperativity C influences the spin states
-                y,F,eta,C1A,C2B,C2A,C1B=get_params(B,angle,self.ga,0,0)
+                y,I,eta,C1A,C2B,C2A,C1B=get_params(B,angle,self.ga,0,0)
 
                 k,dc,dw0=y
                 

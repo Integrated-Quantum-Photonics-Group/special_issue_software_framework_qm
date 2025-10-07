@@ -10,8 +10,8 @@ Created on Wed Aug 13 10:53:35 2025
  * Description: computation of the dissipator L in the Lindblad-master equation
  * Author: Yannick Strocka
  * Created On: May 19, 2025
- * Last Modified: May 19, 2025
- * Version: 1.0
+ * Last Modified: October 6, 2025
+ * Version: 2.0
 """
 
 import numpy as np

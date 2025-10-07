@@ -3,8 +3,8 @@
  * Description: simulate saved state on G4V spin
  * Author: Yannick Strocka
  * Created On: May 19, 2025
- * Last Modified: May 19, 2025
- * Version: 1.0
+ * Last Modified: October 6, 2025
+ * Version: 2.0
 """
 
 import numpy as np
@@ -90,19 +90,19 @@ def f(y,t,d,wc,k,g15,g16,g25,g26,ga15,ga16,ga25,ga26,w15,e2,e6,ga_d,e0,flag):
     
     expr1=-1j*(g15*s15+f_t*g25*s25+f_tc*g16*s16+g26*s26)-k*a+np.sqrt(2*k)*ain
     
-    expr2=-1j*(-dc*s15+f_tc*g25c*s15*s25c*a-f_t*g16c*s16c*s15*a+g15c*a*(s11-s55))-ga15*s15
+    expr2=-1j*(-dc*s15+f_tc*g25c*s15*s25c*a-f_t*g16c*s16c*s15*a+g15c*a*(s11-s55))-0.5*(ga15+ga25)*s15
     
-    expr3=-1j*(-dc*s25+g15c*s25*s15c*a-g26c*s26c*s25*a+f_tc*g25c*a*(s22-s55))-ga25*s25
+    expr3=-1j*(-dc*s25+g15c*s25*s15c*a-g26c*s26c*s25*a+f_tc*g25c*a*(s22-s55))-0.5*(ga15+ga25)*s25
     
-    expr4=-1j*((e2-e6+e5-dc)*s16+g15c*s15c*s16*a+g26c*s16*s26c*a+f_t*g16c*a*(s11-s66))-ga16*s16
+    expr4=-1j*((e2-e6+e5-dc)*s16+g15c*s15c*s16*a+g26c*s16*s26c*a+f_t*g16c*a*(s11-s66))-0.5*(ga16+ga26)*s16
     
-    expr5=-1j*((e2-e6+e5-dc)*s26-f_tc*g25c*s25c*s26*a+f_t*g16c*s26*s16c*a+g26c*a*(s22-s66))-ga26*s26
+    expr5=-1j*((e2-e6+e5-dc)*s26-f_tc*g25c*s25c*s26*a+f_t*g16c*s26*s16c*a+g26c*a*(s22-s66))-0.5*(ga16+ga26)*s26
     
-    expr6=-1j*(g15*s15*ac-g15c*s15c*a+f_tc*g16*s16*ac-f_t*g16c*s16c*a)
+    expr6=-1j*(g15*s15*ac-g15c*s15c*a+f_tc*g16*s16*ac-f_t*g16c*s16c*a)+ga15*s55+ga16*s66
     
-    expr7=-1j*(f_t*g25*s25*ac-f_tc*g25c*s25c*a+g26*s26*ac-g26c*s26c*a)
+    expr7=-1j*(f_t*g25*s25*ac-f_tc*g25c*s25c*a+g26*s26*ac-g26c*s26c*a)+ga25*s55+ga26*s66
     
-    expr8=-1j*(-g15*s15*ac+g15c*s15c*a-f_t*g25*s25*ac+f_tc*g25c*s25c*a)
+    expr8=-1j*(-g15*s15*ac+g15c*s15c*a-f_t*g25*s25*ac+f_tc*g25c*s25c*a)-(ga15+ga25)*s55
         
     expr9=-expr6-expr7-expr8
     

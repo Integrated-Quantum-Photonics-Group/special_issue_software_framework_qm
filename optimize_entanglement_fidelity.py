@@ -3,8 +3,8 @@
  * Description: optimizing spin-photon entanglement 
  * Author: Yannick Strocka
  * Created On: May 19, 2025
- * Last Modified: May 19, 2025
- * Version: 1.0
+ * Last Modified: October 6, 2025
+ * Version: 2.0
 """
 
 import numpy as np
@@ -17,7 +17,7 @@ import scipy
 import os
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-def main2(x,w15,w26,ga15,ga26,g15,g26,ga1):
+def objective(x,w15,w26,ga15,ga26,g15,g26,ga1,flag):
     
     '''
     * Function: main2
@@ -52,6 +52,7 @@ def main2(x,w15,w26,ga15,ga26,g15,g26,ga1):
     
     
     # normalization constants
+    
     bound=int(1e+4)*ga1
     NX=(integrate.quad(lambda w: SX_(w),-bound,bound))[0]**(-1/2)
     
@@ -59,54 +60,64 @@ def main2(x,w15,w26,ga15,ga26,g15,g26,ga1):
     
     alpha=1/np.sqrt(2)
     beta=alpha
+    alpha_c=np.conjugate(alpha)
+    beta_c=np.conjugate(beta)
     
-    # rho_p
-    func1=lambda w: 0.5*np.abs(beta)**2/4*SX(w-w0)*np.abs(rdown(w)-rup(w))**2
-    func2=lambda w: 0.5*SX(w-w0)*np.abs(alpha*rdown(w)+beta/2*(rdown(w)+rup(w)))**2
-    func3_re=lambda w: np.real(0.5*beta/2*SX(w-w0)*(rdown(w)-rup(w))*(np.conjugate(alpha)*np.conjugate(rdown(w))
-                                                                     +np.conjugate(beta)/2*(np.conjugate(rdown(w))
-                                                                                            +np.conjugate(rup(w)))))
-    func3_im=lambda w: np.imag(0.5*beta/2*SX(w-w0)*(rdown(w)-rup(w))*(np.conjugate(alpha)*np.conjugate(rdown(w))
-                                                                     +np.conjugate(beta)/2*(np.conjugate(rdown(w))
-                                                                                            +np.conjugate(rup(w)))))
+    #bound=int(1e+4)*ga1
+    func1=lambda w: SX(w-w0)*np.abs(rdown(w))**2
+    func2_re=lambda w: SX(w-w0)*np.real(rdown(w)*np.conjugate(rup(w)))
+    func2_im=lambda w: SX(w-w0)*np.imag(rdown(w)*np.conjugate(rup(w)))
+    func3=lambda w: SX(w-w0)*np.abs(rup(w))**2
     
     I1,_=integrate.quad(func1,w0-bound,w0+bound)
-    I2,_=integrate.quad(func2,w0-bound,w0+bound)
-    cc,_=integrate.quad(func3_re,w0-bound,w0+bound)
-    dd,_=integrate.quad(func3_im,w0-bound,w0+bound)
+    I2_re,_=integrate.quad(func2_re,w0-bound,w0+bound)
+    I2_im,_=integrate.quad(func2_im,w0-bound,w0+bound)
+    I3,_=integrate.quad(func3,w0-bound,w0+bound)
+    I2=I2_re+1j*I2_im
+    I2_c=np.conjugate(I2)
     
-    I3=cc+1j*dd
+    A=np.abs(alpha/2+beta/2)**2*I1
+    B=1/4*alpha_c*(alpha+beta)*I1+1/4*beta_c*(alpha+beta)*I2
+    B_c=np.conjugate(B)
+    C=1/4*np.abs(alpha)**2+1/4*alpha_c*beta*I2_c+1/4*alpha*beta_c*I2+1/4*np.abs(beta)**2*I3
     
-    rho_p=np.array([[I1,I3],
-                  [np.conjugate(I3),I2]])
     
-    # rho_m
-    func2=lambda w: 0.5*SX(w-w0)*np.abs(alpha*rdown(w)-beta/2*(rdown(w)+rup(w)))**2
-    func3_re=lambda w: -np.real(0.5*beta/2*SX(w-w0)*(rdown(w)-rup(w))*(np.conjugate(alpha)*np.conjugate(rdown(w))
-                                                                     -np.conjugate(beta)/2*(np.conjugate(rdown(w))+np.conjugate(rup(w)))))
-    func3_im=lambda w: -np.imag(0.5*beta/2*SX(w-w0)*(rdown(w)-rup(w))*(np.conjugate(alpha)*np.conjugate(rdown(w))
-                                                                     -np.conjugate(beta)/2*(np.conjugate(rdown(w))+np.conjugate(rup(w)))))
-    I2,_=integrate.quad(func2,w0-bound,w0+bound)
-    cc,_=integrate.quad(func3_re,w0-bound,w0+bound)
-    dd,_=integrate.quad(func3_im,w0-bound,w0+bound)
+    rho_p=np.array([[A,B],
+                   [B_c,C]],dtype=complex)
     
-    I3=cc+1j*dd
-    rho_m=np.array([[I1,I3],
-                [np.conjugate(I3),I2]])
+    beta=-beta
+    beta_c=-beta_c
+    
+    A=np.abs(alpha/2+beta/2)**2*I1
+    B=1/4*alpha_c*(alpha+beta)*I1+1/4*beta_c*(alpha+beta)*I2
+    B_c=np.conjugate(B)
+    C=1/4*np.abs(alpha)**2+1/4*alpha_c*beta*I2_c+1/4*alpha*beta_c*I2+1/4*np.abs(beta)**2*I3
+    
+    
+    rho_m=np.array([[A,B],
+                   [B_c,C]],dtype=complex)
     
     sz=np.array([[-1,0],
                  [0,1]])
     
+    H=1/np.sqrt(2)*np.array([[1,-1],[1,1]])
+    rho_p=np.dot(H,np.dot(rho_p,H.T))
+    rho_m=np.dot(H,np.dot(rho_m,H.T))
+    
     rho=rho_p+np.dot(sz,np.dot(rho_m,sz))
     
-    rho=rho/np.trace(rho)
+    eta=np.trace(rho)
+    rho=rho/eta
     
     sigma=np.array([[0.5,0.5],
                       [0.5,0.5]])
     
     F=mixed_state_fidelity(sigma,rho)
     
-    return 1-np.abs(F)
+    if flag=='optimize':
+        return 1-np.abs(F)
+    else:
+        return 1-np.abs(F),eta
 
 def mixed_state_fidelity(sigma,rho):
     
@@ -130,95 +141,6 @@ def mixed_state_fidelity(sigma,rho):
     F=np.trace(X)**2
     
     return F
-
-def get_sol(x,w15,w26,ga15,ga26,g15,g26,ga1):
-    
-    '''
-    * Function: get_sol
-    
-    * Purpose: evaluation spin-photon entanglement fidelity and efficiency
-    
-    * Parameters:
-        
-        x (array of floats): cavity loss rate, cavity mode detuning, central frequency detuning
-        w15 (float): atomaic transition frequency 15
-        w26 (float): atomic transition frequency 26
-        ga15 (float): atomic decay rate 15
-        ga26 (float): atomic decay rate 26
-        g15 (complex): coupling strength 15
-        g26 (complex): coupling strength 26
-        ga1 (float): bandwidth of incoming photon 
-    
-    * Returns:
-        
-        (float): spin-photon entanglement fidelity
-        (float): spin-photon entanglement efficiency
-    '''
-    k,d,dw0=x
-     
-    w0=w15+dw0
-    wc=w15-d
-    kl=k
-    rdown=lambda w:1-2*kl*(1j*(w-w15)+ga15)/((1j*(w-wc)+k)*(1j*(w-w15)+ga15)+np.abs(g15)**2)
-    rup=lambda w:1-2*kl*(1j*(w-w26)+ga26)/((1j*(w-wc)+k)*(1j*(w-w26)+ga26)+np.abs(g26)**2)
-
-    # photon spectra of the early and late time bin photon
-    SX_=lambda w: 1/(w**2+0.25*ga1**2)
-    
-    
-    # normalization constants
-    bound=int(1e+4)*ga1
-    NX=(integrate.quad(lambda w: SX_(w),-bound,bound))[0]**(-1/2)
-    
-    SX=lambda w: NX**2*SX_(w)
-    
-    alpha=1/np.sqrt(2)
-    beta=alpha   
-    func1=lambda w: 0.5*np.abs(beta)**2/4*SX(w-w0)*np.abs(rdown(w)-rup(w))**2
-    func2=lambda w: 0.5*SX(w-w0)*np.abs(alpha*rdown(w)+beta/2*(rdown(w)+rup(w)))**2
-    func3_re=lambda w: np.real(0.5*beta/2*SX(w-w0)*(rdown(w)-rup(w))*(np.conjugate(alpha)*np.conjugate(rdown(w))
-                                                                     +np.conjugate(beta)/2*(np.conjugate(rdown(w))+np.conjugate(rup(w)))))
-    func3_im=lambda w: np.imag(0.5*beta/2*SX(w-w0)*(rdown(w)-rup(w))*(np.conjugate(alpha)*np.conjugate(rdown(w))
-                                                                     +np.conjugate(beta)/2*(np.conjugate(rdown(w))+np.conjugate(rup(w)))))
-    
-    I1,_=integrate.quad(func1,w0-bound,w0+bound)
-    I2,_=integrate.quad(func2,w0-bound,w0+bound)
-    cc,_=integrate.quad(func3_re,w0-bound,w0+bound)
-    dd,_=integrate.quad(func3_im,w0-bound,w0+bound)
-    
-    I3=cc+1j*dd
-    
-    rho_p=np.array([[I1,I3],
-                  [np.conjugate(I3),I2]])
-    
-    # rho_m
-    func2=lambda w: 0.5*SX(w-w0)*np.abs(alpha*rdown(w)-beta/2*(rdown(w)+rup(w)))**2
-    func3_re=lambda w: -np.real(0.5*beta/2*SX(w-w0)*(rdown(w)-rup(w))*(np.conjugate(alpha)*np.conjugate(rdown(w))
-                                                                     -np.conjugate(beta)/2*(np.conjugate(rdown(w))+np.conjugate(rup(w)))))
-    func3_im=lambda w: -np.imag(0.5*beta/2*SX(w-w0)*(rdown(w)-rup(w))*(np.conjugate(alpha)*np.conjugate(rdown(w))
-                                                                     -np.conjugate(beta)/2*(np.conjugate(rdown(w))+np.conjugate(rup(w)))))
-    I2,_=integrate.quad(func2,w0-bound,w0+bound)
-    cc,_=integrate.quad(func3_re,w0-bound,w0+bound)
-    dd,_=integrate.quad(func3_im,w0-bound,w0+bound)
-    
-    I3=cc+1j*dd
-    rho_m=np.array([[I1,I3],
-                [np.conjugate(I3),I2]])
-    
-    sz=np.array([[-1,0],
-                 [0,1]])
-    
-    rho=rho_p+np.dot(sz,np.dot(rho_m,sz))
-    
-    eta=np.trace(rho)
-    rho=rho/eta
-    
-    sigma=np.array([[0.5,0.5],
-                      [0.5,0.5]])
-    
-    F=mixed_state_fidelity(sigma,rho)
-    
-    return np.abs(F),np.abs(eta)
 
 
 def doe(a1,a2,angle,B,Ex,eps_xy):
@@ -356,13 +278,19 @@ def get_params(B,angle,ga,Ex,eps_xy):
         (float): cooperativity of transition 1B
         
     '''
-
+    
     g15,g16,g25,g26,ga15,ga16,ga25,ga26,w15,splitting,e6,w26=doe(0,0,angle,B,Ex,eps_xy)
-    f=lambda x: main2(x,w15,w26,ga15,ga26,g15,g26,ga)
-    res=shgo(f,bounds=[(0.001,0.1),(-0.1,0.1),(-0.1,0.1)],sampling_method='sobol',iters=2,n=64)
+    
+    ga15=ga15/2
+    ga16=ga16/2
+    ga25=ga25/2
+    ga26=ga26/2
+    
+    f=lambda x: objective(x,w15,w26,ga15,ga26,g15,g26,ga,'optimize')
+    res=shgo(f,bounds=[(0.01,0.1),(-0.1,0.1),(-0.1,0.1)],sampling_method='sobol',iters=2,n=64)
     
     y=res.x
-    F,eta=get_sol(y,w15,w26,ga15,ga26,g15,g26,ga)
+    I,eta=objective(y,w15,w26,ga15,ga26,g15,g26,ga,'evaluate')
     
     C1A=np.abs(g15)**2/(y[0]*ga15)
     C2B=np.abs(g26)**2/(y[0]*ga26)
@@ -370,4 +298,4 @@ def get_params(B,angle,ga,Ex,eps_xy):
     C1B=np.abs(g16)**2/(y[0]*ga16)
     
     
-    return y,F,eta,C1A,C2B,C2A,C1B
+    return y,I,eta,C1A,C2B,C2A,C1B
