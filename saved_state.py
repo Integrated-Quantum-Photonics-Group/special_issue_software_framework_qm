@@ -7,16 +7,23 @@
  * Version: 2.0
 """
 
+import os
+
+# Muss VOR dem Import von numpy/scipy gesetzt werden!
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import numpy as np
+from silicon_vacancy_characteristics import SiV
 from tin_vacancy_characteristics import SnV
-from atomic_factor import atomic_factor
+from atomic_factor_g4v import atomic_factor
 from photonic_decay_rates import photonic_decay_rates
 from scipy.integrate import odeint
-from scipy.integrate import quad
-from scipy.interpolate import interp1d
 import warnings
-import os
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
+import sys
+from scipy.integrate import simpson
 warnings.filterwarnings("ignore")
 
 
@@ -131,7 +138,7 @@ def f(y,t,d,wc,k,g15,g16,g25,g26,ga15,ga16,ga25,ga26,w15,e2,e6,ga_d,e0,flag):
     
     return rhs
 
-def doe(a1,a2,k,delta,angle,B,Ex,eps_xy):
+def doe(center,a1,a2,k,delta,angle,B,Ex,eps_xy):
     
     '''
     * Function: doe
@@ -174,9 +181,15 @@ def doe(a1,a2,k,delta,angle,B,Ex,eps_xy):
     J=kg*m**2/(s**2)
     V=J/(A*s)
     
-    dg=2*np.pi*0.787*1e+3
-    de=2*np.pi*0.956*1e+3
-
+    if center=='SiV':
+        
+        dg=2*np.pi*1.3*1e+3
+        de=2*np.pi*1.8*1e+3
+        
+    elif center=='SnV':
+        
+        dg=2*np.pi*0.787*1e+3
+        de=2*np.pi*0.956*1e+3
     alpha_g,alpha_u,beta_g,beta_u=[dg*Ex,de*Ex,2*dg*eps_xy,2*de*eps_xy]
 
     n=2.417
@@ -186,13 +199,17 @@ def doe(a1,a2,k,delta,angle,B,Ex,eps_xy):
 
 
     # hamiltonian, spin splitting and atomic displacement
-    H_0,mu_1,mu_2,mu_3,S=SnV(THz,A,kg,m,alpha_g,alpha_u,beta_g,beta_u,B,angle).hamiltonian()
-    H1,H2,H3=SnV(0,0,0,0,0,0,0,0,0,0).interaction()
+    if center=='SnV':
+        H_0,mu_1,mu_2,mu_3,S=SnV(THz,A,kg,m,alpha_g,alpha_u,beta_g,beta_u,B,angle).hamiltonian()
+        H1,H2,H3=SnV(0,0,0,0,0,0,0,0,0,0).interaction()
+    elif center=='SiV':
+        H_0,mu_1,mu_2,mu_3,S=SiV(THz,A,kg,m,alpha_g,alpha_u,beta_g,beta_u,B,angle).hamiltonian()
+        H1,H2,H3=SiV(0,0,0,0,0,0,0,0,0,0).interaction()
 
     splitting=H_0[1,1]-H_0[0,0]
 
     evals=np.diag(H_0)
-    a=atomic_factor(THz,A,kg,m,alpha_g,alpha_u,beta_g,beta_u).get_atomic_a()
+    a=atomic_factor(THz,A,kg,m,alpha_g,alpha_u,beta_g,beta_u,center).get_atomic_a()
 
     # photonic decay rates in the SnV and the relevant rate ga51
     gas=photonic_decay_rates(THz,evals,S,a).rates(H1,H2,H3)
@@ -289,75 +306,29 @@ def get_output_signal(init,dw0,wc,k,g15,g16,g25,g26,ga15,ga16,ga25,ga26,w15,e2,e
     N=int(T/dt)
     t=np.linspace(0,T,N)
     
-    w0=w15+dw0-wc
+    w0=w15-dw0-wc
     data=odeint(f, y_0, t, args=(w0,wc,k,g15,g16,g25,g26,ga15,ga16,ga25,ga26,w15,e2,e6,ga,e0,flag),rtol = 10**(-10), atol = 10**(-12))
     y=np.array([data[i][0] +1j*data[i][1] for i in range(len(data))])
     ain=e0*np.exp((1j*w0-ga/2)*t)
     y1=np.sqrt(2*k)*y-ain
-    y_int=interp1d(t, y1, kind='cubic')
     
-    return y_int
+    return y1
+
 
 def get_integrals(y1,y2,T):
     
-    '''
-    * Function: get_integrals
+    t=np.linspace(0,T,len(y1))
     
-    * Purpose: evaluate integrals to calculate fidelity
-    
-    * Parameters:
-        
-        y1 (lambda func.): outcoming mode when spin is initialized in 1
-        y2 (lambda func.): outcoming mode when spin is initialized in 2
-        T (float): integration time
-    
-    * Returns:
-        
-        (float): integral 1
-        (complex): integral 2
-        (float): integral 3
-    
-    '''
-    
-    func=lambda t: np.abs(y1(t))**2
-    I1,_=quad(func,0,T)
-
-    func_re=lambda t: np.real(y1(t)*np.conjugate(y2(t)))
-    func_im=lambda t: np.imag(y1(t)*np.conjugate(y2(t)))
-    I2_re,_=quad(func_re,0,T)
-    I2_im,_=quad(func_im,0,T)
+    I1=simpson(np.abs(y1)**2,t)
+    I2_re=simpson(np.real(y1*np.conjugate(y2)),t)
+    I2_im=simpson(np.imag(y1*np.conjugate(y2)),t)
     I2=I2_re+1j*I2_im
-    
-    func=lambda t: np.abs(y2(t))**2
-    I3,_=quad(func,0,T)
+    I3=simpson(np.abs(y2)**2,t)
     
     return I1,I2,I3
 
-def depol_(rho,F):
-    
-    '''
-    * Function: depol_
-    
-    * Purpose: depolarization of photonic qubit
-    
-    * Parameters:
-        
-        rho (array of complex): state
-        F (float): photon fidelity
-    
-    * Returns:
-        
-        (array of complex): depolarized state
-    
-    '''
-    
-    eps=2*(1-F)
-    rho_d=(1-eps)*rho+eps*np.eye(2)/2
-        
-    return rho_d
 
-
-def get_state(Fph,I1X,I2X,I3X,aa,bb,cc,dd,La,flag):
+def get_state(I1X,I2X,I3X,aa,bb,cc,dd,La,flag):
     
     '''
     * Function: get_state
@@ -386,15 +357,15 @@ def get_state(Fph,I1X,I2X,I3X,aa,bb,cc,dd,La,flag):
     rho_0=np.array([[aa,bb],
                    [cc,dd]])
     
-    eps=2*(1-Fph)
-    rho_0=(1-eps)*rho_0+eps*np.eye(2)/2
+    #eps=2*(1-Fph)
+    #rho_0=(1-eps)*rho_0+eps*np.eye(2)/2
     
     Id=np.eye(2)
     
     
     IsX=[I1X,I2X,np.conjugate(I2X),I3X]
     
-    if flag=='+':
+    if flag=="+":
         rho=np.zeros((2,2),dtype=complex)
         for I in range(0,2):
             for K in range(0,2):
@@ -412,7 +383,7 @@ def get_state(Fph,I1X,I2X,I3X,aa,bb,cc,dd,La,flag):
                                 
     
     
-    else:
+    elif flag=="-":
         rho=np.zeros((2,2),dtype=complex)
         for I in range(0,2):
             for K in range(0,2):
@@ -426,11 +397,14 @@ def get_state(Fph,I1X,I2X,I3X,aa,bb,cc,dd,La,flag):
                                                             +Id[I,1]*Id[K,1]*IsX[2*m+k]
                                                             -Id[I,0]*Id[K,1]*IsX[k]
                                                             -Id[I,1]*Id[K,0]*IsX[2*m])
+    else:
+        print("Measurement either in + or -")
+        sys.exit(1)  # Abort the program with a nonzero exit code
     
     return rho
 
 
-def get_saved_spins(mm,B,angle,Fph,k,delta,dw0,gaX,La,Ex,eps_xy):
+def get_saved_spins(center,mm,B,angle,k,delta,dw0,gaX,La,Ex,eps_xy):
     
     '''
     * Function: get_saved_spins
@@ -460,13 +434,13 @@ def get_saved_spins(mm,B,angle,Fph,k,delta,dw0,gaX,La,Ex,eps_xy):
     flag='cross'
     a1=0
     a2=0
-    k,wc,g15,g16,g25,g26,ga15,ga16,ga25,ga26,w15,e2,e6=doe(a1,a2,k,delta,angle,B,Ex,eps_xy)
+    k,wc,g15,g16,g25,g26,ga15,ga16,ga25,ga26,w15,e2,e6=doe(center,a1,a2,k,delta,angle,B,Ex,eps_xy)
 
 
-    dt=1e-2
-    T=1e+4
+    dt=1e+0
+    T=1e+6
     init=0
-    e0=1e-3
+    e0=1e-4
     y1=get_output_signal(init,dw0,wc,k,g15,g16,g25,g26,ga15,ga16,ga25,ga26,w15,e2,e6,gaX,e0,dt,T,flag)
     init=1
     y2=get_output_signal(init,dw0,wc,k,g15,g16,g25,g26,ga15,ga16,ga25,ga26,w15,e2,e6,gaX,e0,dt,T,flag)
@@ -477,10 +451,10 @@ def get_saved_spins(mm,B,angle,Fph,k,delta,dw0,gaX,La,Ex,eps_xy):
     I2X=I2*gaX/(e0**2)
     I3X=I3*gaX/(e0**2)
     
-    state1=get_state(Fph,I1X,I2X,I3X,1,0,0,0,La,mm)
-    state2=get_state(Fph,I1X,I2X,I3X,0,1,0,0,La,mm)
-    state3=get_state(Fph,I1X,I2X,I3X,0,0,1,0,La,mm)
-    state4=get_state(Fph,I1X,I2X,I3X,0,0,0,1,La,mm)
+    state1=get_state(I1X,I2X,I3X,1,0,0,0,La,mm)
+    state2=get_state(I1X,I2X,I3X,0,1,0,0,La,mm)
+    state3=get_state(I1X,I2X,I3X,0,0,1,0,La,mm)
+    state4=get_state(I1X,I2X,I3X,0,0,0,1,La,mm)
     states=[state1,state2,state3,state4]
     
     return states

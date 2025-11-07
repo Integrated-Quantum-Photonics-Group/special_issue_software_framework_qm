@@ -8,7 +8,16 @@
 """
 
 import os
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ.update({
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "TBB_NUM_THREADS": "1",
+    "MKL_DYNAMIC": "FALSE",
+})
+from threadpoolctl import threadpool_limits
 import numpy as np
 from numba import jit
 from scipy.integrate import odeint
@@ -229,7 +238,8 @@ class liouville_space_integration:
         y_0=np.hstack((np.real(y_0),np.zeros((64,))))
         t = np.linspace(0, self.T, int((self.T)/1e-2))
         N = 100 * int((self.T) / (2 * np.pi / (self.w1)))
-        data=odeint(self.dL, y_0, t, args = (self.w1, self.w2, self.a_1, self.a_2, self.mu_1, self.mu_2, self.mu_3, self.H_0, self.E1, self.E2, self.sigma, self.L, self.T, self.phi_p), rtol = 10**(-10), atol = 10**(-12), mxstep = N)
+        with threadpool_limits(limits=1):
+            data=odeint(self.dL, y_0, t, args = (self.w1, self.w2, self.a_1, self.a_2, self.mu_1, self.mu_2, self.mu_3, self.H_0, self.E1, self.E2, self.sigma, self.L, self.T, self.phi_p), rtol = 10**(-10), atol = 10**(-12), mxstep = N)
         state=data[-1]                      
         rho_T=state[0:64]+1j*state[64:128]
         rho_T=self.reshape_(rho_T)

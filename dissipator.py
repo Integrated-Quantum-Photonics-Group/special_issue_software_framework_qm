@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Aug 13 10:53:35 2025
-
-@author: yanni
-"""
-
 """
  * Module Name: dissipator
  * Description: computation of the dissipator L in the Lindblad-master equation
@@ -13,6 +6,17 @@ Created on Wed Aug 13 10:53:35 2025
  * Last Modified: October 6, 2025
  * Version: 2.0
 """
+
+import os
+os.environ.update({
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "TBB_NUM_THREADS": "1",
+    "MKL_DYNAMIC": "FALSE",
+})
 
 import numpy as np
 from tin_vacancy_characteristics import SnV

@@ -7,20 +7,26 @@
  * Version: 2.0
 """
 
+import os
+
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 import numpy as np
 from scipy import integrate
 from tin_vacancy_characteristics import SnV
-from atomic_factor import atomic_factor
+from silicon_vacancy_characteristics import SiV
+from atomic_factor_g4v import atomic_factor
 from photonic_decay_rates import photonic_decay_rates
 from scipy.optimize import shgo
 import scipy
-import os
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 def objective(x,w15,w26,ga15,ga26,g15,g26,ga1,flag):
     
     '''
-    * Function: main2
+    * Function: objective
     
     * Purpose: objective function model for spin-photon entanglement optimization
     
@@ -39,9 +45,11 @@ def objective(x,w15,w26,ga15,ga26,g15,g26,ga1,flag):
         
         (float): spin-photon entanglement infidelity
     '''
-    k,d,dw0=x
-      
-    w0=w15+dw0
+    C,d,dw0=x
+    
+    k=np.abs(g15)**2/(4*C*ga15)
+    
+    w0=w15-dw0
     wc=w15-d
     kl=k
     rdown=lambda w:1-2*kl*(1j*(w-w15)+ga15)/((1j*(w-wc)+k)*(1j*(w-w15)+ga15)+np.abs(g15)**2)
@@ -143,7 +151,7 @@ def mixed_state_fidelity(sigma,rho):
     return F
 
 
-def doe(a1,a2,angle,B,Ex,eps_xy):
+def doe(center,a1,a2,angle,B,Ex,eps_xy):
     
     '''
     * Function: doe
@@ -184,9 +192,16 @@ def doe(a1,a2,angle,B,Ex,eps_xy):
     s=1e+12*ps
     J=kg*m**2/(s**2)
     V=J/(A*s)
-
-    dg=2*np.pi*0.787*1e+3
-    de=2*np.pi*0.956*1e+3
+    
+    if center=='SiV':
+        
+        dg=2*np.pi*1.3*1e+3
+        de=2*np.pi*1.8*1e+3
+        
+    elif center=='SnV':
+        
+        dg=2*np.pi*0.787*1e+3
+        de=2*np.pi*0.956*1e+3
 
     alpha_g,alpha_u,beta_g,beta_u=[dg*Ex,de*Ex,2*dg*eps_xy,2*de*eps_xy]
 
@@ -197,14 +212,18 @@ def doe(a1,a2,angle,B,Ex,eps_xy):
 
 
     # hamiltonian, spin splitting and atomic displacement
-    H_0,mu_1,mu_2,mu_3,S=SnV(THz,A,kg,m,alpha_g,alpha_u,beta_g,beta_u,B,angle).hamiltonian()
-    H1,H2,H3=SnV(0,0,0,0,0,0,0,0,0,0).interaction()
+    if center=='SnV':
+        H_0,mu_1,mu_2,mu_3,S=SnV(THz,A,kg,m,alpha_g,alpha_u,beta_g,beta_u,B,angle).hamiltonian()
+        H1,H2,H3=SnV(0,0,0,0,0,0,0,0,0,0).interaction()
+    elif center=='SiV':
+        H_0,mu_1,mu_2,mu_3,S=SiV(THz,A,kg,m,alpha_g,alpha_u,beta_g,beta_u,B,angle).hamiltonian()
+        H1,H2,H3=SiV(0,0,0,0,0,0,0,0,0,0).interaction()
 
     splitting=H_0[1,1]-H_0[0,0]
 
     w26=H_0[5,5]-H_0[1,1]
     evals=np.diag(H_0)
-    a=atomic_factor(THz,A,kg,m,alpha_g,alpha_u,beta_g,beta_u).get_atomic_a()
+    a=atomic_factor(THz,A,kg,m,alpha_g,alpha_u,beta_g,beta_u,center).get_atomic_a()
 
     # photonic decay rates in the SnV and the relevant rate ga51
     gas=photonic_decay_rates(THz,evals,S,a).rates(H1,H2,H3)
@@ -252,7 +271,7 @@ def doe(a1,a2,angle,B,Ex,eps_xy):
     
     return g15,g16,g25,g26,ga15,ga16,ga25,ga26,w15,splitting,e6,w26
 
-def get_params(B,angle,ga,Ex,eps_xy):
+def get_params(center,B,angle,ga,C_max,Ex,eps_xy):
     
     '''
     * Function: get_params
@@ -279,7 +298,7 @@ def get_params(B,angle,ga,Ex,eps_xy):
         
     '''
     
-    g15,g16,g25,g26,ga15,ga16,ga25,ga26,w15,splitting,e6,w26=doe(0,0,angle,B,Ex,eps_xy)
+    g15,g16,g25,g26,ga15,ga16,ga25,ga26,w15,splitting,e6,w26=doe(center,0,0,angle,B,Ex,eps_xy)
     
     ga15=ga15/2
     ga16=ga16/2
@@ -287,10 +306,11 @@ def get_params(B,angle,ga,Ex,eps_xy):
     ga26=ga26/2
     
     f=lambda x: objective(x,w15,w26,ga15,ga26,g15,g26,ga,'optimize')
-    res=shgo(f,bounds=[(0.01,0.1),(-0.1,0.1),(-0.1,0.1)],sampling_method='sobol',iters=2,n=64)
+    res=shgo(f,bounds=[(0.1,C_max),(-0.1,0.1),(-0.1,0.1)],sampling_method='sobol',iters=4,n=64)
     
     y=res.x
     I,eta=objective(y,w15,w26,ga15,ga26,g15,g26,ga,'evaluate')
+    y=(np.abs(g15)**2/(4*y[0]*ga15),y[1],y[2])
     
     C1A=np.abs(g15)**2/(y[0]*ga15)
     C2B=np.abs(g26)**2/(y[0]*ga26)

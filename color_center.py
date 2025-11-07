@@ -3,8 +3,8 @@
  * Description: interaction interface between server and client
  * Author: Yannick Strocka
  * Created On: May 19, 2025
- * Last Modified: May 19, 2025
- * Version: 1.0
+ * Last Modified: October 31, 2025
+ * Version: 2.0
 """
 
 from qsi.qsi import QSI
@@ -38,31 +38,53 @@ if __name__ == "__main__":
         """
         Parameters:
             
-            F_gen (float): fidelity of the incoming photon
-            bw (float): bandwidth of the incoming photon
-            temp (float): temperature
-            Ex (float): strain ground state
-            eps_xy (float): shear strain
-            B_dc (float): DC magnetic field strength
-            B_ac (float): AC magnetic field strength
-            theta_dc (float): orientation of the DC field
-            theta_ac (float): orientation of the AC field
-            control (string): opt (optical control) or mw (microwave control)
-            data_transfer (string): readin or readout
+        center (string): color center ("SiV" or "SnV")
+        spin_gate (string): choose states from implemented model or input them yourself ("optimized" or "experimental")
+        phase_gate (string): choose optimized cavity parameters or input them yourself ("optimized" or "experimental")
+        k (float): HWHM cavity loss rate (GHz)
+        dc (float): cavity mode frequency detuning from the defect center's transition frequency (GHz)
+        d0 (float): incoming mode frequency detuning from the defect center's transition frequency (GHz)
+        spin_states (string): json files of the propagated states if you chose spin_gate=experimental
+        Cs (string): json files of the cooperativities if you chose control=opt and phase_gate=experimental
+        temp (float): temperature (K)
+        ga_in (float): bandwidth of the photon for read-in
+        ga_out (float): bandwidth of the photon for read-out
+        Ex (float): axial strain
+        eps_xy (float): shear strain
+        B_dc (float): DC magnetic field strength in Tesla
+        B_ac (float): AC magnetic field strength in Tesla
+        theta_dc (float): orientation of the DC field in rad
+        theta_ac (float): orientation of the AC field in rad
+        F_aux (float): fidelity of photon from auxiliary photon source for read-out
+        C_max (float): cooperativity bound for phase gate optimization with definition using FWHM for cavity loss rate and decay rate (<25)
+        measurement (string): +/- for read-in and down/up for read-out
+        control (string): opt (optical control) or mw (microwave control)
+        data_transfer (string): readin or readout
          
         """
         return {
             "msg_type": "param_query_response",
             "params": {
-                "F_gen": "number",
-                "bw": "number",
-                "temp": "number",
+                "center": "string",
+                "spin_gate": "string",
+                "phase_gate": "string",
+                "k":"number",
+                "dc":"number",
+                "d0":"number",
+                "spin_states":"string",
+                "Cs":"number",
+                "temp":"number",
+                "ga_in": "number",
+                "ga_out": "number",
                 "Ex":"number",
                 "eps_xy":"number",
                 "B_dc":"number",
                 "B_ac":"number",
                 "theta_dc":"number",
                 "theta_ac":"number",
+                "C_max": "number",
+                "F_aux": "number",
+                "measurement":"string",
                 "control":"string",
                 "data_transfer":"string",
                 }
@@ -71,25 +93,52 @@ if __name__ == "__main__":
     @qsi.on_message("param_set")
     def param_sest(msg):
         
-        global F_gen
+        global center
+        global spin_gate
+        global phase_gate
+        global k
+        global dc
+        global d0
+        global spin_states
+        global Cs
         global temp
-        global bw
+        global ga_in
+        global ga_out
         global Ex
         global eps_xy
         global B_dc
         global B_ac
         global theta_dc
         global theta_ac
+        global C_max
+        global F_aux
+        global measurement
         global control
         global data_transfer
         
         params = msg["params"]
-        if "F_gen" in params:
-            F_gen = float(params["F_gen"]["value"])
+        if "center" in params:
+            center = params["center"]["value"]
+        if "spin_gate" in params:
+            spin_gate = params["spin_gate"]["value"]
+        if "phase_gate" in params:
+            phase_gate = params["phase_gate"]["value"]
+        if "k" in params:
+            k = params["k"]["value"]
+        if "dc" in params:
+            dc = params["dc"]["value"]
+        if "d0" in params:
+            d0 = params["d0"]["value"]
+        if "spin_states" in params:
+            spin_states = params["spin_states"]["value"]
+        if "Cs" in params:
+            Cs = params["Cs"]["value"]
         if "temp" in params:
             temp = float(params["temp"]["value"])
-        if "bw" in params:
-            bw = float(params["bw"]["value"])
+        if "ga_in" in params:
+            ga_in = float(params["ga_in"]["value"])
+        if "ga_out" in params:
+            ga_out = float(params["ga_out"]["value"])
         if "Ex" in params:
             Ex = float(params["Ex"]["value"])
         if "eps_xy" in params:
@@ -102,6 +151,12 @@ if __name__ == "__main__":
             theta_dc = float(params["theta_dc"]["value"])
         if "theta_ac" in params:
             theta_ac = float(params["theta_ac"]["value"])
+        if "C_max" in params:
+            C_max = float(params["C_max"]["value"])
+        if "F_aux" in params:
+            F_aux = float(params["F_aux"]["value"])
+        if "measurement" in params:
+            measurement=params["measurement"]["value"]
         if "control" in params:
             control = params["control"]["value"]
         if "data_transfer" in params:
@@ -113,22 +168,33 @@ if __name__ == "__main__":
     @qsi.on_message("channel_query")
     def channel_query(msg):
         
-        global F_gen
+        global center
+        global spin_gate
+        global phase_gate
+        global k
+        global dc
+        global d0
+        global spin_states
+        global Cs
         global temp
-        global bw
+        global ga_in
+        global ga_out
         global Ex
         global eps_xy
         global B_dc
         global B_ac
         global theta_dc
         global theta_ac
+        global C_max
+        global F_aux
+        global measurement
         global control
         global data_transfer
         global previous_time
         
         
         # Kraus-operators and approximation error are evaluated by calling the function component
-        operators,e=component(F_gen,temp,bw,Ex,eps_xy,B_dc,B_ac,theta_dc,theta_ac,control,data_transfer).channel()
+        operators,e=component(center,spin_gate,phase_gate,k,dc,d0,Cs,spin_states,temp,ga_in,ga_out,Ex,eps_xy,B_dc,B_ac,theta_dc,theta_ac,C_max,F_aux,measurement,control,data_transfer).channel()
 
         
         return {

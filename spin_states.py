@@ -1,27 +1,28 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Aug 13 10:51:28 2025
-
-@author: yanni
-"""
-
 """
  * Module Name: spin_states
  * Description: computation of the propagated spin states s.t. an optical pi/2 pulse
  * Author: Yannick Strocka
  * Created On: May 19, 2025
- * Last Modified: May 19, 2025
+ * Last Modified: October 30, 2025
  * Version: 1.0
 """
 
 import os
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ.update({
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "VECLIB_MAXIMUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1",
+    "TBB_NUM_THREADS": "1",
+    "MKL_DYNAMIC": "FALSE",
+})
 import numpy as np
 from tin_vacancy_characteristics import SnV
 from liouville_space_integration import liouville_space_integration
 import scipy
 
-from atomic_factor import atomic_factor
+from atomic_factor_g4v import atomic_factor
 from dissipator import dissipator,hooke,phononic_absorption
 
 
@@ -99,7 +100,7 @@ def pi8_rotated_states(ps,alpha_g,alpha_u,beta_g,beta_u,Delta2,theta,B,x,C1A,C2B
     sigma=tau/(2*np.sqrt(2*np.log(2)))
     T=10*sigma+100*ps
 
-    aa=atomic_factor(THz,A,kg,m,alpha_g,alpha_u,beta_g,beta_u).get_atomic_a()
+    aa=atomic_factor(THz,A,kg,m,alpha_g,alpha_u,beta_g,beta_u,'SnV').get_atomic_a()
 
     C_d=hooke(THz,kg,m).get_tensor()
     Rs=['gx','gy','ux','uy']
@@ -164,7 +165,7 @@ def continue_rotating(rhoT1,rhoT2,rhoT3,rhoT4):
     return states
 
 
-def get_spin_states(B,C1A,C2B,C2A,C1B,flag,TT):
+def get_spin_states(B,C1A,C2B,C2A,C1B,TT):
     
     '''
     
@@ -197,7 +198,8 @@ def get_spin_states(B,C1A,C2B,C2A,C1B,flag,TT):
     Delta2=0
     theta=np.pi/8
     
-    if flag=='3':
+    
+    if np.abs(B*1e+24-3)<1e-10:
 
         tau=353.32/4
         Delta5=99.66*1e-3*2*np.pi
@@ -210,9 +212,9 @@ def get_spin_states(B,C1A,C2B,C2A,C1B,flag,TT):
         E1=68.44*1e-3
         E2=72.33*1e-3
     
-    elif flag=='1':
+    elif np.abs(B*1e+24-1)<1e-10:
         tau,Delta5,angle,phi1,phi2,theta1,theta2,phi_p,E1,E2=64.23/4 ,110.53*1e-3*2*np.pi, 64.62/360*2*np.pi, 97.66/360*2*np.pi, 105.31/360*2*np.pi, 108.93/360*2*np.pi, 103.88/360*2*np.pi, 167.31/360*2*np.pi, 220.44*1e-3, 223.05*1e-3 #B1T
-    elif flag=='0.3':
+    elif np.abs(B*1e+24-0.3)<1e-10:
         phi1,phi2,angle,theta1,theta2,tau,Delta5,phi_p,E1,E2=1.47472268,  2.03073063,  1.42067733,  2.07416781,1.61893809, 37.91212733,  0.22445809,  2.45553716, 54.4*1e-3, 56.02*1e-3
     
     x=np.array([phi1,phi2,angle,theta1,theta2,tau,Delta5,phi_p,E1,E2])
