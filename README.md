@@ -4,6 +4,8 @@ The module computes Kraus-operators for a hybrid quantum memory consisting of a 
 
 Users may select optical control for the SnV or microwave control for the SiV and SnV for both read-in and read-out, and in all cases they can configure photon-generation fidelity of the auxiliary photon source, bandwidth of the incoming photon for read-in and read-out and the nanophotonic system’s temperature. The user can also choose between the optimized phase gate and manually chosen parameters to produce a phase gate as well as the optimized spin gate and manually set propagated spin states. If microwave control is chosen, strain as well as DC and AC magnetic field strengths and orientations are also adjustable; under optical control these parameters remain fixed.
 
+Python version >= 3.10 is necessary.
+
 # Execution
 
 The provided code can be run using either the Dockerfile or by manually installing the required libraries.
