@@ -17,7 +17,7 @@ The provided code can be run using either the Dockerfile or by manually installi
    
    Install the libraries listed in requirements.txt using pip.
    
-   Install quasi using the following command:
+   Install qsi using the following command:
    
    pip install git+https://github.com/tqsd/special_issue_quantum.git@master
    
