@@ -61,8 +61,14 @@ coordinator.run()
 '''
 
 spin_gate = input('\n Optimized or experimental spin gate? ("optimized" or "experimental"): ').strip()
+if spin_gate!="optimized" and spin_gate!="experimental":
+    raise ValueError('Input must be "optimized" or "experimental" ')
 phase_gate = input('\n Optimized or experimental phase gate? ("optimized" or "experimental"): ').strip()
+if phase_gate!="optimized" and phase_gate!="experimental":
+    raise ValueError('Input must be "optimized" or "experimental" ')
 control = input('\n Microwave or optical control? ("mw" oder "opt"): ').strip()
+if control!="mw" and control!="opt":
+    raise ValueError('Input must be "mw" or "opt" ')
 
 Cs,rhos,k,dc,d0,center,temp,ga_in,ga_out,Ex,eps_xy,B_dc,B_ac,theta_dc,theta_ac,F_aux,C_max,measurement,data_transfer=parameter_query(spin_gate,phase_gate,control)
 
